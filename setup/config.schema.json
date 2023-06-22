@@ -1,0 +1,240 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Config",
+  "type": "object",
+  "required": [
+    "db_path",
+    "recorder",
+    "server"
+  ],
+  "properties": {
+    "db_path": {
+      "description": "Path to the sqlite database",
+      "type": "string"
+    },
+    "recorder": {
+      "description": "Sensors and series settings",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Recorder"
+        }
+      ]
+    },
+    "server": {
+      "description": "HTTP server settings",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Server"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "Bme280Address": {
+      "type": "string",
+      "enum": [
+        "0x76",
+        "0x77"
+      ]
+    },
+    "Bme280Config": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "$ref": "#/definitions/Bme280Address"
+        },
+        "humidity_series": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "Path to the i2c directory (default \"/dev/i2c-1\")",
+          "default": "/dev/i2c-1",
+          "type": "string"
+        },
+        "pressure_series": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "temperature_series": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "Ds18b20Config": {
+      "type": "object",
+      "properties": {
+        "serial_number": {
+          "description": "Serial number of the sensor. Automatically detected if not configured.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "temperature_series": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "OpenWeatherMapConfig": {
+      "type": "object",
+      "required": [
+        "api_key",
+        "lat",
+        "lon"
+      ],
+      "properties": {
+        "api_key": {
+          "type": "string"
+        },
+        "lat": {
+          "type": "number",
+          "format": "double"
+        },
+        "lon": {
+          "type": "number",
+          "format": "double"
+        },
+        "temperature_series": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "Recorder": {
+      "type": "object",
+      "required": [
+        "sensors",
+        "series"
+      ],
+      "properties": {
+        "sensors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Sensor"
+          }
+        },
+        "series": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SeriesConfig"
+          }
+        }
+      }
+    },
+    "Sensor": {
+      "type": "object",
+      "required": [
+        "config",
+        "id"
+      ],
+      "properties": {
+        "config": {
+          "$ref": "#/definitions/SensorConfig"
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "SensorConfig": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "ds18b20"
+          ],
+          "properties": {
+            "ds18b20": {
+              "$ref": "#/definitions/Ds18b20Config"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "bme280"
+          ],
+          "properties": {
+            "bme280": {
+              "$ref": "#/definitions/Bme280Config"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "open_weather_map"
+          ],
+          "properties": {
+            "open_weather_map": {
+              "$ref": "#/definitions/OpenWeatherMapConfig"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SeriesConfig": {
+      "type": "object",
+      "required": [
+        "color",
+        "id",
+        "name",
+        "sampling_interval",
+        "unit"
+      ],
+      "properties": {
+        "color": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sampling_interval": {
+          "description": "Interval between two measures, in the form \"1min\", \"30sec\", \"1h\", etc.",
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      }
+    },
+    "Server": {
+      "type": "object",
+      "required": [
+        "allowed_origin",
+        "port"
+      ],
+      "properties": {
+        "allowed_origin": {
+          "description": "Host name of the server serving the frontend",
+          "type": "string"
+        },
+        "port": {
+          "description": "Port the server should listen to",
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        }
+      }
+    }
+  }
+}

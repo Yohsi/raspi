@@ -1,13 +1,15 @@
 use std::error::Error;
 use std::fmt::Display;
-use std::sync::{Arc, Mutex};
+use std::net::{IpAddr, SocketAddr};
+use std::sync::Mutex;
 use std::time;
 
-use crate::data_store::DataStore;
-use crate::timestamp::Timestamp;
-use rouille::{content_encoding, try_or_400, Request, Response};
-
 use anyhow::{anyhow, Result};
+use rouille::{content_encoding, Request, Response, router, try_or_400};
+use rusqlite::Error::QueryReturnedNoRows;
+
+use crate::config;
+use crate::store::Store;
 
 #[derive(Debug)]
 struct MissingParamErr {
@@ -22,13 +24,17 @@ impl Display for MissingParamErr {
     }
 }
 
-pub fn serve_temperatures(store: Arc<Mutex<DataStore>>, addr: &str) -> Result<()> {
+pub fn serve(cfg: config::Server, db_path: &str) -> Result<()> {
+    let store = Mutex::new(Store::new(db_path)?);
+    let addr = SocketAddr::new(IpAddr::from([0, 0, 0, 0]), cfg.port);
     let serv = rouille::Server::new(addr, move |req| {
         let t1 = time::Instant::now();
-        let resp = match (req.method(), req.url().as_str()) {
-            ("GET", "/temp") => get_range(req, store.clone()),
+        let resp = router!(req,
+            (GET) (/series/{series: String}) => {get_range(req, &series, &store)},
+            (GET) (/series/{series: String}/latest) => {get_latest(req, &series, &store)},
+            (GET) (/series) => {get_series(req, &store)},
             _ => Response::text("No such endpoint").with_status_code(404),
-        };
+        );
         let resp = content_encoding::apply(&req, resp);
         let t2 = time::Instant::now();
         let ms = (t2 - t1).as_micros() as f32 / 1000.0;
@@ -39,15 +45,15 @@ pub fn serve_temperatures(store: Arc<Mutex<DataStore>>, addr: &str) -> Result<()
             resp.status_code,
             ms
         );
-        resp.with_additional_header("Access-Control-Allow-Origin", "*")
+        resp.with_additional_header("Access-Control-Allow-Origin", cfg.allowed_origin.clone())
     })
-    .map_err(|e| anyhow!("Error starting server: {e}"))?;
+        .map_err(|e| anyhow!("Error starting server: {e}"))?;
     println!("Listening on {addr}");
     serv.run();
     Ok(())
 }
 
-fn get_range(req: &Request, store: Arc<Mutex<DataStore>>) -> Response {
+fn get_range(req: &Request, series: &str, store: &Mutex<Store>) -> Response {
     let from = try_or_400!(req.get_param("from").ok_or(MissingParamErr {
         name: "from".into()
     }));
@@ -55,14 +61,9 @@ fn get_range(req: &Request, store: Arc<Mutex<DataStore>>) -> Response {
         .get_param("to")
         .ok_or(MissingParamErr { name: "to".into() }));
 
-    let from = Timestamp {
-        secs: try_or_400!(from.parse()),
-    };
-    let to = Timestamp {
-        secs: try_or_400!(to.parse()),
-    };
-
-    let range = store.lock().unwrap().get_range(from, to);
+    let from: u64 = try_or_400!(from.parse());
+    let to: u64 = try_or_400!(to.parse());
+    let range = store.lock().unwrap().fetch(&series, from, to);
 
     match range {
         Ok(range) => Response::json(&range),
@@ -73,3 +74,30 @@ fn get_range(req: &Request, store: Arc<Mutex<DataStore>>) -> Response {
     }
 }
 
+fn get_latest(_req: &Request, series: &str, store: &Mutex<Store>) -> Response {
+    let latest = store.lock().unwrap().latest(series);
+
+    match latest {
+        Ok(latest) => Response::json(&latest),
+        Err(err) if err.downcast_ref::<rusqlite::Error>().is_some_and(|e| *e == QueryReturnedNoRows) => Response::with_status_code(
+            Response::text(format!("No value found for this series")),
+            404,
+        ),
+        Err(err) => Response::with_status_code(
+            Response::text(format!("Internal server error: {}", err)),
+            500,
+        ),
+    }
+}
+
+fn get_series(_req: &Request, store: &Mutex<Store>) -> Response {
+    let series = store.lock().unwrap().series();
+
+    match series {
+        Ok(series) => Response::json(&series),
+        Err(err) => Response::with_status_code(
+            Response::text(format!("Internal server error: {}", err)),
+            500,
+        ),
+    }
+}

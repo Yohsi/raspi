@@ -32,7 +32,8 @@ pub fn serve(cfg: config::Server, db_path: &str) -> Result<()> {
         let resp = router!(req,
             (GET) (/series/{series: String}) => {get_range(req, &series, &store)},
             (GET) (/series/{series: String}/latest) => {get_latest(req, &series, &store)},
-            (GET) (/series) => {get_series(req, &store)},
+            (GET) (/series) => {get_series_name(req, &store)},
+            (GET) (/series_def) => {get_series(req, &store)},
             _ => Response::text("No such endpoint").with_status_code(404),
         );
         let resp = content_encoding::apply(&req, resp);
@@ -83,6 +84,18 @@ fn get_latest(_req: &Request, series: &str, store: &Mutex<Store>) -> Response {
             Response::text(format!("No value found for this series")),
             404,
         ),
+        Err(err) => Response::with_status_code(
+            Response::text(format!("Internal server error: {}", err)),
+            500,
+        ),
+    }
+}
+
+fn get_series_name(_req: &Request, store: &Mutex<Store>) -> Response {
+    let series = store.lock().unwrap().series();
+
+    match series {
+        Ok(series) => Response::json(&series.iter().map(|s| s.id.clone()).collect::<Vec<_>>()),
         Err(err) => Response::with_status_code(
             Response::text(format!("Internal server error: {}", err)),
             500,

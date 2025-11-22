@@ -4,8 +4,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Result};
 
-use sensors::{Sensor, sensor_factory};
-use series::{SeriesDef, SeriesState};
+use sensors::{sensor_factory, Sensor};
+use series::SeriesState;
 use store::Store;
 
 use crate::record::Record;
@@ -38,7 +38,7 @@ impl Recorder {
             if let Some(SeriesState { id, .. }) = prev {
                 bail!(anyhow!("the \"{id}\" series is defined twice"));
             }
-            series_def.push(SeriesDef::new(series_cfg));
+            series_def.push(series_cfg.to_series_def());
         }
 
         store.update_series(&series_def)?;

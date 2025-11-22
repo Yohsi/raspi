@@ -192,6 +192,7 @@
     "SeriesConfig": {
       "type": "object",
       "required": [
+        "category",
         "color",
         "id",
         "name",
@@ -199,6 +200,10 @@
         "unit"
       ],
       "properties": {
+        "category": {
+          "description": "Series belonging to the same categoriy will be plotted on the same graph, with the name of the graph being the category name",
+          "type": "string"
+        },
         "color": {
           "type": "string"
         },
@@ -213,6 +218,7 @@
           "type": "string"
         },
         "unit": {
+          "description": "unit to display on the graph",
           "type": "string"
         }
       }

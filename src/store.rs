@@ -1,5 +1,5 @@
 use anyhow::Result;
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 
 use crate::record::Record;
 use crate::series::SeriesDef;
@@ -17,15 +17,20 @@ impl Store {
             series    TEXT NOT NULL,
             value     REAL NOT NULL,
             PRIMARY KEY (timestamp, series)
-        )", ())?;
+        )",
+            (),
+        )?;
         db.execute(
             "CREATE TABLE IF NOT EXISTS series (
             id        TEXT NOT NULL,
             name      TEXT NOT NULL,
+            category  TEXT NOT NULL,
             unit      TEXT NOT NULL,
             color     TEXT NOT NULL,
             PRIMARY KEY (id)
-        )", ())?;
+        )",
+            (),
+        )?;
         Ok(Store { db })
     }
 
@@ -41,14 +46,14 @@ impl Store {
         let mut stmt = self.db.prepare(
             "SELECT timestamp, value
              FROM records
-             WHERE series = ?1 AND timestamp >= ?2 AND timestamp <= ?3")?;
-        let iter = stmt.query_map(
-            params![series, from, to], |row| {
-                Ok(Record {
-                    timestamp: row.get(0)?,
-                    value: row.get(1)?,
-                })
-            })?;
+             WHERE series = ?1 AND timestamp >= ?2 AND timestamp <= ?3",
+        )?;
+        let iter = stmt.query_map(params![series, from, to], |row| {
+            Ok(Record {
+                timestamp: row.get(0)?,
+                value: row.get(1)?,
+            })
+        })?;
 
         let mut records = vec![];
         for record in iter {
@@ -65,44 +70,49 @@ impl Store {
              FROM records
              WHERE series = ?1
              ORDER BY timestamp DESC
-             LIMIT 1")?;
-        let record = stmt.query_row(
-            [series], |row| {
-                Ok(Record {
-                    timestamp: row.get(0)?,
-                    value: row.get(1)?,
-                })
-            })?;
+             LIMIT 1",
+        )?;
+        let record = stmt.query_row([series], |row| {
+            Ok(Record {
+                timestamp: row.get(0)?,
+                value: row.get(1)?,
+            })
+        })?;
 
         Ok(record)
     }
 
     pub fn update_series(&self, series: &[SeriesDef]) -> Result<()> {
         let mut stmt = self.db.prepare(
-            "INSERT INTO series (id, name, unit, color)
-             VALUES (?1, ?2, ?3, ?4)
+            "INSERT INTO series (id, name, category, unit, color)
+             VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(id) DO UPDATE SET
                 name=excluded.name,
+                category=excluded.category,
                 unit=excluded.unit,
                 color=excluded.color
-            ")?;
+            ",
+        )?;
         for s in series {
-            stmt.execute([&s.id, &s.name, &s.unit, &s.color])?;
+            stmt.execute([&s.id, &s.name, &s.category, &s.unit, &s.color])?;
         }
         Ok(())
     }
 
     pub fn series(&self) -> Result<Vec<SeriesDef>> {
         let mut stmt = self.db.prepare(
-            "SELECT id, name, unit, color
-             FROM series")?;
-        let series_iter = stmt.query_map(
-            [], |row| Ok(SeriesDef{
+            "SELECT id, name, category, unit, color
+             FROM series",
+        )?;
+        let series_iter = stmt.query_map([], |row| {
+            Ok(SeriesDef {
                 id: row.get(0)?,
                 name: row.get(1)?,
-                unit: row.get(2)?,
-                color: row.get(3)?,
-            }))?;
+                category: row.get(2)?,
+                unit: row.get(3)?,
+                color: row.get(4)?,
+            })
+        })?;
 
         let mut series = vec![];
         for s in series_iter {

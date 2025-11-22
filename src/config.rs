@@ -1,9 +1,11 @@
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+use crate::series::SeriesDef;
+
 #[derive(Deserialize, JsonSchema)]
 pub struct Config {
-    /// Sensors and series settings 
+    /// Sensors and series settings
     pub recorder: Recorder,
     /// HTTP server settings
     pub server: Server,
@@ -62,7 +64,7 @@ pub struct Bme280Config {
 
 impl Bme280Config {
     fn default_path() -> String {
-        return "/dev/i2c-1".to_owned()
+        "/dev/i2c-1".to_owned()
     }
 }
 
@@ -92,8 +94,24 @@ impl Default for Bme280Address {
 pub struct SeriesConfig {
     pub id: String,
     pub name: String,
+    /// unit to display on the graph
     pub unit: String,
+    /// Series belonging to the same categoriy will be plotted on the same graph,
+    /// with the name of the graph being the category name
+    pub category: String,
     pub color: String,
     /// Interval between two measures, in the form "1min", "30sec", "1h", etc.
     pub sampling_interval: String,
+}
+
+impl SeriesConfig {
+    pub fn to_series_def(&self) -> SeriesDef {
+        SeriesDef {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            unit: self.unit.clone(),
+            category: self.category.clone(),
+            color: self.color.clone(),
+        }
+    }
 }

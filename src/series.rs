@@ -1,5 +1,5 @@
+use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
-use serde::{Serialize, Deserialize};
 
 use anyhow::Result;
 
@@ -41,6 +41,7 @@ impl SeriesState {
 pub struct SeriesDef {
     pub id: String,
     pub name: String,
+    pub category: String,
     pub unit: String,
     pub color: String,
 }
@@ -50,6 +51,7 @@ impl SeriesDef {
         Self {
             id: cfg.id,
             name: cfg.name,
+            category: cfg.category,
             color: cfg.color,
             unit: cfg.unit,
         }

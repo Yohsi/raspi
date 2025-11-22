@@ -43,7 +43,7 @@ impl Sensor for Bme280 {
         if self.config.humidity_series.as_ref().is_some_and(|s| s == series) {
             return Ok(sample.humidity as f64)
         } else if self.config.pressure_series.as_ref().is_some_and(|s| s == series) {
-            return Ok(sample.pressure as f64)
+            return Ok(sample.pressure as f64 / 100.0)
         } else if self.config.temperature_series.as_ref().is_some_and(|s| s == series) {
             return Ok(sample.temperature as f64)
         } else {
